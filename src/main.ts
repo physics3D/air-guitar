@@ -174,8 +174,8 @@ async function draw() {
         context.fill();
 
         context.beginPath();
-        context.moveTo(oppositeHand.x, hip.y);
-        context.lineTo(hip.x, hip.y);
+        context.moveTo(oppositeHand.x * width / video.videoWidth, hip.y * height / video.videoHeight);
+        context.lineTo(hip.x * width / video.videoWidth, hip.y * height / video.videoHeight);
         context.closePath();
         context.stroke();
 
@@ -183,7 +183,7 @@ async function draw() {
         context.font = "100px Arial";
         // to undo flipping horizontally
         context.save();
-        context.translate((oppositeHand.x + hip.x) / 2, hip.y - 20);
+        context.translate(((oppositeHand.x + hip.x) / 2) * width / video.videoWidth, (hip.y - 20) * height / video.videoHeight);
         context.scale(-1, 1);
         context.fillText(distance.toFixed(0), 0, 0);
         context.restore();
@@ -198,7 +198,7 @@ async function draw() {
 
 
       if (hand!.y > y && performance.now() - playedTime > minInterval && !played) {
-        let noteIndex = distance / width * (noteArray.length - 5);
+        let noteIndex = distance / video.videoWidth * (noteArray.length - 5);
         noteIndex = Math.floor(noteIndex);
         noteIndex = noteArray.length - 5 - noteIndex;
         noteIndex = Math.max(noteIndex, 0);
