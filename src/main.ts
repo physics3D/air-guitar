@@ -1,4 +1,4 @@
-import './style.css'
+import './index.css';
 
 import * as poseDetection from '@tensorflow-models/pose-detection';
 import '@tensorflow/tfjs-backend-webgl';
@@ -8,10 +8,20 @@ import { instrument, Player } from "soundfont-player";
 const noteArray = ["C1", "D1", "E1", "F1", "G1", "A1", "H1", "C2", "D2", "E2", "F2", "G2", "A2", "H2", "C3", "D3", "E3", "F3", "G3", "A3", "H3", "C4"];
 
 const minPredictionScore = 0.2;
+const minInterval = 500;
+const minYDifference = 50;
 
 let detector: PoseDetector;
 let leftHanded = false;
-let fullChord = false;
+
+enum ChordType {
+  Single,
+  Fifth,
+  Triad,
+
+}
+
+let chordType: ChordType = ChordType.Single;
 let handIndex = "right_wrist";
 let oppositeHandIndex = "left_wrist";
 let hipIndex = "right_hip";
@@ -20,6 +30,8 @@ let played = false;
 let playedTime = performance.now();
 
 let currentNote = document.getElementById("currentnote")!;
+
+let debugOverlay = false;
 
 let video: HTMLVideoElement;
 let audioContext: AudioContext;
@@ -40,6 +52,7 @@ async function main() {
   document.getElementById("status")!.innerHTML = "Loaded Model";
 
   document.getElementById("button")!.addEventListener("click", async () => {
+    document.getElementById("overlay")!.style.display = "none";
     audioContext = new AudioContext();
     await audioContext.resume();
     guitar = await instrument(audioContext, "distortion_guitar", { soundfont: 'FluidR3_GM' });
@@ -62,9 +75,22 @@ async function main() {
 
   let fullChordButton = document.getElementById("fullchord")!;
   fullChordButton.addEventListener("click", () => {
-    fullChord = !fullChord;
+    if (chordType == ChordType.Single) {
+      chordType = ChordType.Fifth;
+      fullChordButton.innerHTML = "Fifth";
+    } else if (chordType == ChordType.Fifth) {
+      chordType = ChordType.Triad;
+      fullChordButton.innerHTML = "Triad";
+    } else if (chordType == ChordType.Triad) {
+      chordType = ChordType.Single;
+      fullChordButton.innerHTML = "Single";
+    }
+  });
 
-    fullChordButton.innerHTML = fullChord ? "Full Chord is on" : "Full Chord is off";
+  let debugOverlayButton = document.getElementById("debugoverlaybutton")!;
+  debugOverlayButton.addEventListener("click", () => {
+    debugOverlay = !debugOverlay;
+    debugOverlayButton.innerHTML = debugOverlay ? "Debug Overlay is on" : "Debug Overlay is off";
   });
 
 
@@ -88,7 +114,7 @@ main();
 
 async function draw() {
   if (loaded) {
-    console.log("FPS:", 1 / ((performance.now() - lastFrame) / 1000));
+    console.log("FPS:", (1 / ((performance.now() - lastFrame) / 1000)).toFixed(0));
     lastFrame = performance.now();
 
     const poses = await detector.estimatePoses(video);
@@ -130,68 +156,69 @@ async function draw() {
         continue;
       }
 
-      // draw
-      context.fillStyle = "rgb(255, 0, 0)";
-      context.beginPath();
-      context.arc(hand.x * width / video.videoWidth, hand.y * height / video.videoHeight, 10, 0, 2 * Math.PI);
-      context.fill();
-
-      context.beginPath();
-      context.arc(oppositeHand.x * width / video.videoWidth, oppositeHand.y * height / video.videoHeight, 10, 0, 2 * Math.PI);
-      context.fill();
-
-      context.beginPath();
-      context.arc(hip.x * width / video.videoWidth, hip.y * height / video.videoHeight, 10, 0, 2 * Math.PI);
-      context.fill();
-
-      context.beginPath();
-      context.moveTo(oppositeHand.x, hip.y);
-      context.lineTo(hip.x, hip.y);
-      context.closePath();
-      context.stroke();
-
       let distance = Math.abs(hip!.x - oppositeHand!.x);
 
+      // draw
+      if (debugOverlay) {
+        context.fillStyle = "rgb(255, 0, 0)";
+        context.beginPath();
+        context.arc(hand.x * width / video.videoWidth, hand.y * height / video.videoHeight, 10, 0, 2 * Math.PI);
+        context.fill();
 
-      context.textAlign = "center";
-      context.font = "100px Arial";
-      // to undo flipping horizontally
-      context.save();
-      context.translate((oppositeHand.x + hip.x) / 2, hip.y - 20);
-      context.scale(-1, 1);
-      context.fillText(distance.toFixed(0), 0, 0);
-      context.restore();
-      // context.fillRect(keypoint.x, keypoint.y, 10, 10);
+        context.beginPath();
+        context.arc(oppositeHand.x * width / video.videoWidth, oppositeHand.y * height / video.videoHeight, 10, 0, 2 * Math.PI);
+        context.fill();
 
-      if (Math.abs(hand!.y - y) < 100) {
+        context.beginPath();
+        context.arc(hip.x * width / video.videoWidth, hip.y * height / video.videoHeight, 10, 0, 2 * Math.PI);
+        context.fill();
+
+        context.beginPath();
+        context.moveTo(oppositeHand.x, hip.y);
+        context.lineTo(hip.x, hip.y);
+        context.closePath();
+        context.stroke();
+
+        context.textAlign = "center";
+        context.font = "100px Arial";
+        // to undo flipping horizontally
+        context.save();
+        context.translate((oppositeHand.x + hip.x) / 2, hip.y - 20);
+        context.scale(-1, 1);
+        context.fillText(distance.toFixed(0), 0, 0);
+        context.restore();
+        // context.fillRect(keypoint.x, keypoint.y, 10, 10);
+      }
+
+      if (Math.abs(hand!.y - y) < minYDifference) {
         continue;
       }
 
       // console.log(hand, oppositeHand, hip);
 
 
-      if (hand!.y > y) {
-        if (!played && performance.now() - playedTime > 500) {
-          let noteIndex = distance / width * (noteArray.length - 5);
-          noteIndex = Math.floor(noteIndex);
-          noteIndex = noteArray.length - 5 - noteIndex;
-          noteIndex = Math.max(noteIndex, 0);
-          noteIndex = Math.min(noteIndex, noteArray.length - 5);
+      if (hand!.y > y && performance.now() - playedTime > minInterval && !played) {
+        let noteIndex = distance / width * (noteArray.length - 5);
+        noteIndex = Math.floor(noteIndex);
+        noteIndex = noteArray.length - 5 - noteIndex;
+        noteIndex = Math.max(noteIndex, 0);
+        noteIndex = Math.min(noteIndex, noteArray.length - 5);
 
-          console.log(distance);
-          console.log(noteIndex);
-          console.log(noteArray[noteIndex], noteArray[noteIndex + 4]);
+        console.log(distance);
+        console.log(noteIndex);
+        console.log(noteArray[noteIndex], noteArray[noteIndex + 4]);
 
-          currentNote.innerHTML = noteArray[noteIndex] + ", " + ", (" + noteArray[noteIndex + 2] + "), " + noteArray[noteIndex + 4];
+        currentNote.innerHTML = noteArray[noteIndex] + ", (" + noteArray[noteIndex + 2] + "), " + noteArray[noteIndex + 4];
 
-          playedTime = performance.now();
+        playedTime = performance.now();
 
-          guitar.stop();
+        guitar.stop();
 
-          guitar.play(noteArray[noteIndex]);
-          if (fullChord) {
-            guitar.play(noteArray[noteIndex + 2]);
-          }
+        guitar.play(noteArray[noteIndex]);
+        if (chordType == ChordType.Triad) {
+          guitar.play(noteArray[noteIndex + 2]);
+        }
+        if (chordType !== ChordType.Single) {
           guitar.play(noteArray[noteIndex + 4]);
         }
       }

@@ -7,12 +7,25 @@
     <title>Vite App</title>
   </head>
   <body>
-    <p id="status">Loading model...</p>
-    <canvas width="640" height="480"></canvas>
-    <button id="button">Start</button>
-    <button id="leftHanded">Lefthanded is off</button>
-    <button id="fullchord">Full Chord is off</button>
-    <div id="currentnote">C3</div>
+    <div
+      id="overlay"
+      class="fixed w-full h-full left-0 top-0 bg-opacity-75 bg-black flex flex-col justify-center items-center"
+    >
+      <p class="text-white">Press Start to start!</p>
+      <button id="button">Start</button>
+    </div>
+
+    <div class="p-2 m-2 flex flex-col justify-center items-center">
+      <canvas width="640" height="480"></canvas>
+      <p id="status">Loading model...</p>
+      <div class="flex flex-row">
+        <button id="leftHanded">Lefthanded is off</button>
+        <button id="fullchord">Single</button>
+        <p>Current note: <div id="currentnote" class="m-2 p-2">C3</div></p>
+        <button id="debugoverlaybutton">Debug Oberlay is off</button>
+      </div>
+    </div>
+
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
