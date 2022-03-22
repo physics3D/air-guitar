@@ -14,12 +14,15 @@ let leftHanded = false;
 let fullChord = false;
 let handIndex = "right_wrist";
 let oppositeHandIndex = "left_wrist";
+let hipIndex = "right_hip";
 let y = 0;
 let played = false;
 let playedTime = performance.now();
 
+let currentNote = document.getElementById("currentnote")!;
+
 let video: HTMLVideoElement;
-let audioContext = new AudioContext();
+let audioContext: AudioContext;
 let loaded = false;
 let guitar: Player;
 let lastFrame = performance.now();
@@ -28,12 +31,16 @@ let canvas = document.getElementsByTagName("canvas").item(0)!;
 let width = canvas.width;
 let height = canvas.height;
 let context = canvas.getContext("2d")!;
+// flip canvas
+context.translate(width, 0);
+context.scale(-1, 1);
 
 async function main() {
   detector = await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet, { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING });
   document.getElementById("status")!.innerHTML = "Loaded Model";
 
   document.getElementById("button")!.addEventListener("click", async () => {
+    audioContext = new AudioContext();
     await audioContext.resume();
     guitar = await instrument(audioContext, "distortion_guitar", { soundfont: 'FluidR3_GM' });
     loaded = true;
@@ -49,7 +56,8 @@ async function main() {
 
     leftHandedButton.innerHTML = leftHanded ? "Lefthanded is on" : "Lefthanded is off";
     handIndex = leftHanded ? "left_wrist" : "right_wrist";
-    oppositeHandIndex = !leftHanded ? "left_wrist" : "right_wrist";
+    oppositeHandIndex = leftHanded ? "right_wrist" : "left_wrist";
+    hipIndex = leftHanded ? "left_hip" : "right_hip";
   });
 
   let fullChordButton = document.getElementById("fullchord")!;
@@ -61,16 +69,18 @@ async function main() {
 
 
   if (navigator.mediaDevices.getUserMedia) {
-    let stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    let stream = await navigator.mediaDevices.getUserMedia({ video: true }).catch(() => alert("Could not get webcam access"));
     video = document.createElement("video");
-    document.body.appendChild(video);
+    // document.body.appendChild(video);
     video.addEventListener("loadeddata", () => {
+      video.play();
+      // video.hidden = true;
       requestAnimationFrame(draw);
     });
-    video.srcObject = stream;
+    video.srcObject = stream!;
 
-    video.play();
-    video.hidden = true;
+    // flip horizontally
+    video.style.transform = "scaleX(-1)";
   }
 }
 
@@ -83,6 +93,8 @@ async function draw() {
 
     const poses = await detector.estimatePoses(video);
 
+    context.clearRect(0, 0, width, height);
+    context.drawImage(video, 0, 0, width, height);
 
     for (let index = 0; index < poses.length; index++) {
       const pose = poses[index];
@@ -90,6 +102,7 @@ async function draw() {
 
       let hand: Keypoint | undefined;
       let oppositeHand: Keypoint | undefined;
+      let hip: Keypoint | undefined;
 
       for (let i = 0; i < pose.keypoints.length; i++) {
         const keypoint = pose.keypoints[i];
@@ -101,26 +114,64 @@ async function draw() {
         if (keypoint.name == oppositeHandIndex) {
           oppositeHand = keypoint;
         }
+
+        if (keypoint.name == hipIndex) {
+          hip = keypoint;
+        }
       }
 
-      if (hand == undefined || oppositeHand == undefined) {
+      if (hand == undefined || oppositeHand == undefined || hip == undefined) {
         console.log("error");
         continue;
       }
 
-      if (hand!.score! < minPredictionScore || oppositeHand!.score! < minPredictionScore) {
+      if (hand!.score! < minPredictionScore || oppositeHand!.score! < minPredictionScore || hip!.score! < minPredictionScore) {
+        console.log("error");
         continue;
       }
+
+      // draw
+      context.fillStyle = "rgb(255, 0, 0)";
+      context.beginPath();
+      context.arc(hand.x * width / video.videoWidth, hand.y * height / video.videoHeight, 10, 0, 2 * Math.PI);
+      context.fill();
+
+      context.beginPath();
+      context.arc(oppositeHand.x * width / video.videoWidth, oppositeHand.y * height / video.videoHeight, 10, 0, 2 * Math.PI);
+      context.fill();
+
+      context.beginPath();
+      context.arc(hip.x * width / video.videoWidth, hip.y * height / video.videoHeight, 10, 0, 2 * Math.PI);
+      context.fill();
+
+      context.beginPath();
+      context.moveTo(oppositeHand.x, hip.y);
+      context.lineTo(hip.x, hip.y);
+      context.closePath();
+      context.stroke();
+
+      let distance = Math.abs(hip!.x - oppositeHand!.x);
+
+
+      context.textAlign = "center";
+      context.font = "100px Arial";
+      // to undo flipping horizontally
+      context.save();
+      context.translate((oppositeHand.x + hip.x) / 2, hip.y - 20);
+      context.scale(-1, 1);
+      context.fillText(distance.toFixed(0), 0, 0);
+      context.restore();
+      // context.fillRect(keypoint.x, keypoint.y, 10, 10);
 
       if (Math.abs(hand!.y - y) < 100) {
         continue;
       }
 
-      // console.log(hand, oppositeHand);
+      // console.log(hand, oppositeHand, hip);
+
 
       if (hand!.y > y) {
         if (!played && performance.now() - playedTime > 500) {
-          let distance = Math.abs(hand!.x - oppositeHand!.x);
           let noteIndex = distance / width * (noteArray.length - 5);
           noteIndex = Math.floor(noteIndex);
           noteIndex = noteArray.length - 5 - noteIndex;
@@ -130,6 +181,8 @@ async function draw() {
           console.log(distance);
           console.log(noteIndex);
           console.log(noteArray[noteIndex], noteArray[noteIndex + 4]);
+
+          currentNote.innerHTML = noteArray[noteIndex] + ", " + ", (" + noteArray[noteIndex + 2] + "), " + noteArray[noteIndex + 4];
 
           playedTime = performance.now();
 
@@ -149,34 +202,10 @@ async function draw() {
       y = hand!.y;
     }
 
-    context.clearRect(0, 0, width, height);
-    context.drawImage(video, 0, 0, width, height);
 
     // We can call both functions to draw all keypoints and the skeletons
     // drawKeypoints();
     // drawSkeleton();
-
-    for (let i = 0; i < poses.length; i++) {
-      const pose = poses[i];
-
-      for (let j = 0; j < pose.keypoints.length; j++) {
-        const keypoint = pose.keypoints[j];
-
-        if (keypoint.name != "left_wrist" && keypoint.name != "right_wrist") {
-          continue;
-        }
-
-        if (!keypoint.score || keypoint.score < minPredictionScore) {
-          continue;
-        }
-
-        context.fillStyle = "rgb(255, 0, 0)";
-        context.beginPath();
-        context.arc(keypoint.x * width / video.videoWidth, keypoint.y * height / video.videoHeight, 10, 0, 2 * Math.PI);
-        context.fill();
-        // context.fillRect(keypoint.x, keypoint.y, 10, 10);
-      }
-    }
   }
 
   requestAnimationFrame(draw);
