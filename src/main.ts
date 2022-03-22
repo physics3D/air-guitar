@@ -2,13 +2,14 @@ import './style.css'
 
 import * as poseDetection from '@tensorflow-models/pose-detection';
 import '@tensorflow/tfjs-backend-webgl';
-import { Keypoint } from '@tensorflow-models/pose-detection';
+import { Keypoint, PoseDetector } from '@tensorflow-models/pose-detection';
 import { instrument, Player } from "soundfont-player";
 
 const noteArray = ["C1", "D1", "E1", "F1", "G1", "A1", "H1", "C2", "D2", "E2", "F2", "G2", "A2", "H2", "C3", "D3", "E3", "F3", "G3", "A3", "H3", "C4"];
 
 const minPredictionScore = 0.2;
 
+let detector: PoseDetector;
 let leftHanded = false;
 let fullChord = false;
 let handIndex = "right_wrist";
@@ -18,8 +19,6 @@ let played = false;
 let playedTime = performance.now();
 
 let video: HTMLVideoElement;
-let scaleX = 1;
-let scaleY = 1;
 let audioContext = new AudioContext();
 let loaded = false;
 let guitar: Player;
@@ -30,49 +29,52 @@ let width = canvas.width;
 let height = canvas.height;
 let context = canvas.getContext("2d")!;
 
-let detector = await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet, { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING });
-document.getElementById("status")!.innerHTML = "Loaded Model";
+async function main() {
+  detector = await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet, { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING });
+  document.getElementById("status")!.innerHTML = "Loaded Model";
 
-document.getElementById("button")!.addEventListener("click", async () => {
-  await audioContext.resume();
-  guitar = await instrument(audioContext, "distortion_guitar", { soundfont: 'FluidR3_GM' });
-  loaded = true;
-  guitar.play("C3");
-  guitar.play("E3");
-  guitar.play("G3");
-});
-
-let leftHandedButton = document.getElementById("leftHanded")!;
-leftHandedButton.addEventListener("click", () => {
-  console.log("hi");
-  leftHanded = !leftHanded;
-
-  leftHandedButton.innerHTML = leftHanded ? "Lefthanded is on" : "Lefthanded is off";
-  handIndex = leftHanded ? "left_wrist" : "right_wrist";
-  oppositeHandIndex = !leftHanded ? "left_wrist" : "right_wrist";
-});
-
-let fullChordButton = document.getElementById("fullchord")!;
-fullChordButton.addEventListener("click", () => {
-  fullChord = !fullChord;
-
-  fullChordButton.innerHTML = fullChord ? "Full Chord is on" : "Full Chord is off";
-});
-
-
-if (navigator.mediaDevices.getUserMedia) {
-  let stream = await navigator.mediaDevices.getUserMedia({ video: true });
-  video = document.createElement("video");
-  document.body.appendChild(video);
-  video.addEventListener("loadedmetadata", () => {
-    requestAnimationFrame(draw);
+  document.getElementById("button")!.addEventListener("click", async () => {
+    await audioContext.resume();
+    guitar = await instrument(audioContext, "distortion_guitar", { soundfont: 'FluidR3_GM' });
+    loaded = true;
+    guitar.play("C3");
+    guitar.play("E3");
+    guitar.play("G3");
   });
-  video.srcObject = stream;
 
-  video.play();
-  // video.hidden = true;
+  let leftHandedButton = document.getElementById("leftHanded")!;
+  leftHandedButton.addEventListener("click", () => {
+    console.log("hi");
+    leftHanded = !leftHanded;
+
+    leftHandedButton.innerHTML = leftHanded ? "Lefthanded is on" : "Lefthanded is off";
+    handIndex = leftHanded ? "left_wrist" : "right_wrist";
+    oppositeHandIndex = !leftHanded ? "left_wrist" : "right_wrist";
+  });
+
+  let fullChordButton = document.getElementById("fullchord")!;
+  fullChordButton.addEventListener("click", () => {
+    fullChord = !fullChord;
+
+    fullChordButton.innerHTML = fullChord ? "Full Chord is on" : "Full Chord is off";
+  });
+
+
+  if (navigator.mediaDevices.getUserMedia) {
+    let stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    video = document.createElement("video");
+    document.body.appendChild(video);
+    video.addEventListener("loadeddata", () => {
+      requestAnimationFrame(draw);
+    });
+    video.srcObject = stream;
+
+    video.play();
+    video.hidden = true;
+  }
 }
 
+main();
 
 async function draw() {
   if (loaded) {
@@ -117,8 +119,8 @@ async function draw() {
       // console.log(hand, oppositeHand);
 
       if (hand!.y > y) {
-        if (!played) {
-          let distance = Math.abs(hand!.x - oppositeHand!.y);
+        if (!played && performance.now() - playedTime > 500) {
+          let distance = Math.abs(hand!.x - oppositeHand!.x);
           let noteIndex = distance / width * (noteArray.length - 5);
           noteIndex = Math.floor(noteIndex);
           noteIndex = noteArray.length - 5 - noteIndex;
@@ -161,6 +163,10 @@ async function draw() {
         const keypoint = pose.keypoints[j];
 
         if (keypoint.name != "left_wrist" && keypoint.name != "right_wrist") {
+          continue;
+        }
+
+        if (!keypoint.score || keypoint.score < minPredictionScore) {
           continue;
         }
 
