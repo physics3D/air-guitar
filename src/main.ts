@@ -5,7 +5,7 @@ import '@tensorflow/tfjs-backend-webgl';
 import { Keypoint, PoseDetector } from '@tensorflow-models/pose-detection';
 import { instrument, Player } from "soundfont-player";
 
-const noteArray = ["C1", "D1", "E1", "F1", "G1", "A1", "H1", "C2", "D2", "E2", "F2", "G2", "A2", "H2", "C3", "D3", "E3", "F3", "G3", "A3", "H3", "C4"];
+const noteArray = ["C1", "D1", "E1", "F1", "G1", "A1", "B1", "C2", "D2", "E2", "F2", "G2", "A2", "B2", "C3", "D3", "E3", "F3", "G3", "A3", "B3", "C4"];
 
 const minPredictionScore = 0.2;
 const minInterval = 500;
