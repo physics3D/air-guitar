@@ -11,16 +11,18 @@ const minPredictionScore = 0.2;
 
 let leftHanded = false;
 let fullChord = false;
-let handIndex = "rightWrist";
-let oppositeHandIndex = "leftWrist";
+let handIndex = "right_wrist";
+let oppositeHandIndex = "left_wrist";
 let y = 0;
 let played = false;
 let playedTime = performance.now();
 
 let video: HTMLVideoElement;
+let scaleX = 1;
+let scaleY = 1;
 let audioContext = new AudioContext();
 let loaded = false;
-let guitar: { play: any; start?: (name: string, when?: number | undefined, options?: Partial<{ gain: number; attack: number; decay: number; sustain: number; release: number; adsr: [number, number, number, number]; duration: number; loop: boolean; }> | undefined) => Player; stop?: (when?: number | undefined, nodes?: AudioNode[] | undefined) => AudioNode[]; on?: (event: string, callback: (a?: any) => void) => Player; connect?: (destination: any) => Player; schedule?: (when: number, events: any[]) => Player; listenToMidi?: (midiInput: any, options?: any) => Player; };
+let guitar: Player;
 let lastFrame = performance.now();
 
 let canvas = document.getElementsByTagName("canvas").item(0)!;
@@ -36,6 +38,8 @@ document.getElementById("button")!.addEventListener("click", async () => {
   guitar = await instrument(audioContext, "distortion_guitar", { soundfont: 'FluidR3_GM' });
   loaded = true;
   guitar.play("C3");
+  guitar.play("E3");
+  guitar.play("G3");
 });
 
 let leftHandedButton = document.getElementById("leftHanded")!;
@@ -44,8 +48,8 @@ leftHandedButton.addEventListener("click", () => {
   leftHanded = !leftHanded;
 
   leftHandedButton.innerHTML = leftHanded ? "Lefthanded is on" : "Lefthanded is off";
-  handIndex = leftHanded ? "leftWrist" : "rightWrist";
-  oppositeHandIndex = !leftHanded ? "leftWrist" : "rightWrist";
+  handIndex = leftHanded ? "left_wrist" : "right_wrist";
+  oppositeHandIndex = !leftHanded ? "left_wrist" : "right_wrist";
 });
 
 let fullChordButton = document.getElementById("fullchord")!;
@@ -59,10 +63,12 @@ fullChordButton.addEventListener("click", () => {
 if (navigator.mediaDevices.getUserMedia) {
   let stream = await navigator.mediaDevices.getUserMedia({ video: true });
   video = document.createElement("video");
-  video.addEventListener("loadeddata", () => {
+  document.body.appendChild(video);
+  video.addEventListener("loadedmetadata", () => {
     requestAnimationFrame(draw);
   });
   video.srcObject = stream;
+
   video.play();
   // video.hidden = true;
 }
@@ -74,6 +80,8 @@ async function draw() {
     lastFrame = performance.now();
 
     const poses = await detector.estimatePoses(video);
+
+
     for (let index = 0; index < poses.length; index++) {
       const pose = poses[index];
       // console.log(pose);
@@ -94,6 +102,7 @@ async function draw() {
       }
 
       if (hand == undefined || oppositeHand == undefined) {
+        console.log("error");
         continue;
       }
 
@@ -112,15 +121,17 @@ async function draw() {
           let distance = Math.abs(hand!.x - oppositeHand!.y);
           let noteIndex = distance / width * (noteArray.length - 5);
           noteIndex = Math.floor(noteIndex);
+          noteIndex = noteArray.length - 5 - noteIndex;
           noteIndex = Math.max(noteIndex, 0);
           noteIndex = Math.min(noteIndex, noteArray.length - 5);
-          noteIndex = noteArray.length - 5 - noteIndex;
 
           console.log(distance);
           console.log(noteIndex);
           console.log(noteArray[noteIndex], noteArray[noteIndex + 4]);
 
           playedTime = performance.now();
+
+          guitar.stop();
 
           guitar.play(noteArray[noteIndex]);
           if (fullChord) {
@@ -136,6 +147,7 @@ async function draw() {
       y = hand!.y;
     }
 
+    context.clearRect(0, 0, width, height);
     context.drawImage(video, 0, 0, width, height);
 
     // We can call both functions to draw all keypoints and the skeletons
@@ -148,14 +160,15 @@ async function draw() {
       for (let j = 0; j < pose.keypoints.length; j++) {
         const keypoint = pose.keypoints[j];
 
-        if (keypoint.name != "leftWrist" && keypoint.name != "rightWrist") {
+        if (keypoint.name != "left_wrist" && keypoint.name != "right_wrist") {
           continue;
         }
 
-        if (keypoint.score! > minPredictionScore) {
-          context.fillStyle = "rgb(255, 0, 0)";
-          context.arc(keypoint!.x, keypoint!.y, 10, 0, 2 * Math.PI);
-        }
+        context.fillStyle = "rgb(255, 0, 0)";
+        context.beginPath();
+        context.arc(keypoint.x * width / video.videoWidth, keypoint.y * height / video.videoHeight, 10, 0, 2 * Math.PI);
+        context.fill();
+        // context.fillRect(keypoint.x, keypoint.y, 10, 10);
       }
     }
   }
