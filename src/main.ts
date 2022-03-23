@@ -16,9 +16,9 @@ let leftHanded = false;
 
 enum ChordType {
   Single,
+  Third,
   Fifth,
   Triad,
-
 }
 
 let chordType: ChordType = ChordType.Single;
@@ -28,6 +28,7 @@ let hipIndex = "right_hip";
 let y = 0;
 let played = false;
 let playedTime = performance.now();
+let doubleStroke = false;
 
 let currentNote = document.getElementById("currentnote")!;
 
@@ -76,6 +77,9 @@ async function main() {
   let fullChordButton = document.getElementById("fullchord")!;
   fullChordButton.addEventListener("click", () => {
     if (chordType == ChordType.Single) {
+      chordType = ChordType.Third;
+      fullChordButton.innerHTML = "Third";
+    } else if (chordType == ChordType.Third) {
       chordType = ChordType.Fifth;
       fullChordButton.innerHTML = "Fifth";
     } else if (chordType == ChordType.Fifth) {
@@ -85,6 +89,12 @@ async function main() {
       chordType = ChordType.Single;
       fullChordButton.innerHTML = "Single";
     }
+  });
+
+  let doubleStrokeButton = document.getElementById("doublestroke")!;
+  doubleStrokeButton.addEventListener("click", () => {
+    doubleStroke = !doubleStroke;
+    doubleStrokeButton.innerHTML = doubleStroke ? "Double Stroke" : "Single Stroke";
   });
 
   let debugOverlayButton = document.getElementById("debugoverlaybutton")!;
@@ -190,39 +200,37 @@ async function draw() {
         // context.fillRect(keypoint.x, keypoint.y, 10, 10);
       }
 
+      // console.log(hand, oppositeHand, hip);
+
+      let noteIndex = distance / video.videoWidth * (noteArray.length - 5);
+      noteIndex = Math.floor(noteIndex);
+      noteIndex = noteArray.length - 5 - noteIndex;
+      noteIndex = Math.max(noteIndex, 0);
+      noteIndex = Math.min(noteIndex, noteArray.length - 5);
+
+      console.log(distance);
+      console.log(noteIndex);
+      console.log(noteArray[noteIndex], noteArray[noteIndex + 4]);
+
+      currentNote.innerHTML = noteArray[noteIndex];
+
       if (Math.abs(hand!.y - y) < minYDifference) {
         continue;
       }
 
-      // console.log(hand, oppositeHand, hip);
-
-
-      if (hand!.y > y && performance.now() - playedTime > minInterval && !played) {
-        let noteIndex = distance / video.videoWidth * (noteArray.length - 5);
-        noteIndex = Math.floor(noteIndex);
-        noteIndex = noteArray.length - 5 - noteIndex;
-        noteIndex = Math.max(noteIndex, 0);
-        noteIndex = Math.min(noteIndex, noteArray.length - 5);
-
-        console.log(distance);
-        console.log(noteIndex);
-        console.log(noteArray[noteIndex], noteArray[noteIndex + 4]);
-
-        currentNote.innerHTML = noteArray[noteIndex] + ", (" + noteArray[noteIndex + 2] + "), " + noteArray[noteIndex + 4];
-
+      if (((hand!.y > y && !played) || doubleStroke) && performance.now() - playedTime > minInterval) {
         playedTime = performance.now();
 
         guitar.stop();
 
         guitar.play(noteArray[noteIndex]);
-        if (chordType == ChordType.Triad) {
+        if (chordType == ChordType.Triad || chordType == ChordType.Third) {
           guitar.play(noteArray[noteIndex + 2]);
         }
-        if (chordType !== ChordType.Single) {
+        if (chordType == ChordType.Triad || chordType == ChordType.Fifth) {
           guitar.play(noteArray[noteIndex + 4]);
         }
-      }
-      else {
+      } else {
         played = false;
       }
 
