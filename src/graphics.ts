@@ -17,10 +17,12 @@ export function initGraphics() {
     context.scale(-1, 1);
 }
 
-export function updateGraphics() {
+export function updateVideo() {
     context.clearRect(0, 0, width, height);
     context.drawImage(video, 0, 0, width, height);
+}
 
+export function updateGraphics() {
     let fps = (1 / ((performance.now() - lastFrame) / 1000)).toFixed(0);
     lastFrame = performance.now();
 

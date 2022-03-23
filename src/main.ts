@@ -3,7 +3,7 @@ import './index.css';
 import '@tensorflow/tfjs-backend-webgl';
 import { initUi, updateUi } from './ui';
 import { detectorLoaded, initDetector, updateDetection } from './detection';
-import { initGraphics, updateGraphics } from './graphics';
+import { initGraphics, updateGraphics, updateVideo } from './graphics';
 import { audioLoaded, updateAudio } from './audio';
 
 
@@ -18,6 +18,8 @@ main();
 let detectionSuccededOnce = false;
 
 export async function draw() {
+  updateVideo();
+
   if (audioLoaded && detectorLoaded) {
     detectionSuccededOnce = await updateDetection() || detectionSuccededOnce;
 
