@@ -43,6 +43,12 @@ export function initUi() {
             chordType = ChordType.Triad;
             fullChordButton.innerHTML = "Triad";
         } else if (chordType == ChordType.Triad) {
+            chordType = ChordType.PowerChord;
+            fullChordButton.innerHTML = "PowerChord";
+        } else if (chordType == ChordType.PowerChord) {
+            chordType = ChordType.PowerChordTriad;
+            fullChordButton.innerHTML = "PowerChordTriad";
+        } else if (chordType == ChordType.PowerChordTriad) {
             chordType = ChordType.Single;
             fullChordButton.innerHTML = "Single";
         }

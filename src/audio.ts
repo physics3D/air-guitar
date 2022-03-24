@@ -8,6 +8,9 @@ export enum ChordType {
     Third,
     Fifth,
     Triad,
+    PowerChord,
+    // pretty sure that's not the actual name
+    PowerChordTriad
 }
 
 let audioContext: AudioContext;
@@ -41,11 +44,14 @@ export function updateAudio() {
         guitar.stop();
 
         guitar.play(noteArray[noteIndex]);
-        if (chordType == ChordType.Triad || chordType == ChordType.Third) {
+        if (chordType == ChordType.Triad || chordType == ChordType.Third || chordType == ChordType.PowerChordTriad) {
             guitar.play(noteArray[noteIndex + 2]);
         }
         if (chordType == ChordType.Triad || chordType == ChordType.Fifth) {
             guitar.play(noteArray[noteIndex + 4]);
+        }
+        if ((chordType == ChordType.PowerChord || chordType == ChordType.PowerChordTriad) && noteIndex < noteArray.length - 8) {
+            guitar.play(noteArray[noteIndex + 7]);
         }
     } else {
         played = false;
