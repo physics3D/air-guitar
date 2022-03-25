@@ -22,7 +22,7 @@ export function initUi() {
 
     let leftHandedButton = document.getElementById("leftHanded")!;
     leftHandedButton.addEventListener("click", () => {
-        console.log("hi");
+        // console.log("hi");
         leftHanded = !leftHanded;
 
         leftHandedButton.innerHTML = leftHanded ? "Lefthanded is on" : "Lefthanded is off";

@@ -1,6 +1,6 @@
 import { PoseDetector, Keypoint, createDetector, movenet, SupportedModels } from "@tensorflow-models/pose-detection";
 import { initAudio } from "./audio";
-import { minPredictionScore, noteArray, noteIndexFromDistance } from "./consts";
+import { minPredictionScore, noteIndexFromDistance } from "./consts";
 import { draw } from "./main";
 import { handIndex, oppositeHandIndex, hipIndex, setLoaded } from "./ui";
 
@@ -66,12 +66,12 @@ export async function updateDetection(): Promise<boolean> {
     }
 
     if (hand == undefined || oppositeHand == undefined || hip == undefined) {
-        console.log("error");
+        // console.log("error");
         return false;
     }
 
     if (hand!.score! < minPredictionScore || oppositeHand!.score! < minPredictionScore || hip!.score! < minPredictionScore) {
-        console.log("error");
+        // console.log("error");
         return false;
     }
 
@@ -79,9 +79,9 @@ export async function updateDetection(): Promise<boolean> {
     noteIndex = noteIndexFromDistance(distance);
 
     // console.log(hand, oppositeHand, hip);
-    console.log(distance);
-    console.log(noteIndex);
-    console.log(noteArray[noteIndex], noteArray[noteIndex + 4]);
+    // console.log(distance);
+    // console.log(noteIndex);
+    // console.log(noteArray[noteIndex], noteArray[noteIndex + 4]);
 
     return true;
 }
